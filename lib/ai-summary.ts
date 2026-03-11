@@ -7,6 +7,18 @@ export async function summarizeReviews(product: Product): Promise<string> {
   "use cache";
   cacheLife("hours"); // for 1-hour cache duration
   cacheTag(`product-summary-${product.slug}`); // use product slug for targeted invalidation
+
+  const startTime = Date.now();
+  const requestId = crypto.randomUUID();
+ 
+  console.log(JSON.stringify({
+    event: "ai_request_start",
+    requestId,
+    function: "summarizeReviews",
+    productSlug: product.slug,
+    reviewCount: product.reviews.length,
+    timestamp: new Date().toISOString(),
+  }));
   
   // calculate average rating. 
   // Used to determine tone and provide context to the AI.
@@ -66,12 +78,27 @@ ${product.reviews
 
  // Calls specified AI model via AI Gateway
   try {
-    const { text } = await generateText({
+    const { text, usage } = await generateText({
       model: "anthropic/claude-sonnet-4.5", // AI model
       prompt,
       maxOutputTokens: 1000,
       temperature: 0.75,
     });
+
+    const duration = Date.now() - startTime;
+ 
+    console.log(JSON.stringify({
+      event: "ai_request_success",
+      requestId,
+      function: "summarizeReviews",
+      productSlug: product.slug,
+      duration,
+      inputTokens: usage?.inputTokens,
+      outputTokens: usage?.outputTokens,
+      totalTokens: usage?.totalTokens,
+      timestamp: new Date().toISOString(),
+    }));
+
     // returns the generated summary
     return text 
       .trim() // remove white space 
@@ -79,7 +106,17 @@ ${product.reviews
       .replace(/\"$/, "") // remove trailing quote 
       .replace(/[\[\(]\d+ words[\]\)]/g, ""); // remove word counts like "(30 words)"
   } catch (error) { // handles errors 
-    console.error("Failed to generate summary:", error);
+    const duration = Date.now() - startTime;
+ 
+    console.error(JSON.stringify({
+      event: "ai_request_error",
+      requestId,
+      function: "summarizeReviews",
+      productSlug: product.slug,
+      duration,
+      error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString(),
+    }));
     throw new Error("Unable to generate review summary. Please try again.");
   }
 }
@@ -133,8 +170,8 @@ export async function getReviewInsights(
   product: Product
 ): Promise<ReviewInsights> {
   "use cache";
-  cacheLife("hours");
-  cacheTag(`product-insights-${product.slug}`);
+  cacheLife("hours"); // cache results for 1 hour 
+  cacheTag(`product-insights-${product.slug}`); // Use product-specific tags for invalidation
 
   const averageRating =
     product.reviews.reduce((acc, review) => acc + review.stars, 0) /
