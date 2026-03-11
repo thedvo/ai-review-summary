@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { getProduct, getProducts } from "@/lib/sample-data";
 import { Reviews } from "@/components/reviews";
 import { StreamingSummary } from "@/components/streaming-summary";
@@ -37,7 +38,9 @@ export default async function ProductPage({
         {/* Review Insights */}
         <ReviewInsights product={product} />
         {/* Reviews */}
-        <Reviews product={product} />
+        <Suspense fallback={<div className="text-muted-foreground">Loading reviews...</div>}>
+          <Reviews product={product} />
+        </Suspense>
         
       </div>
     </main>
