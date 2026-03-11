@@ -3,7 +3,15 @@ import { Product } from "@/lib/types";
 import { getReviewInsights } from "@/lib/ai-summary";
  
 export async function ReviewInsights({ product }: { product: Product }) {
-  const insights = await getReviewInsights(product);
+  
+  let insights;
+  try {
+      insights = await getReviewInsights(product);
+  } catch (error) {
+    // Insights are supplementary—if they fail, users still have the summary and reviews
+      console.error("AI insights failed:", error);
+    return null; // Silently fail - summary is more important. The page remains functional without showing an error
+  }
  
   return (
     <Card className="w-full max-w-prose">

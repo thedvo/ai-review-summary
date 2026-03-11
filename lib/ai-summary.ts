@@ -1,9 +1,13 @@
 import { generateText, generateObject, streamText } from "ai";
 import { Product, ReviewInsights, ReviewInsightsSchema } from "./types";
-
+import { cacheLife, cacheTag } from "next/cache";
 
 // Pass in a product object
 export async function summarizeReviews(product: Product): Promise<string> {
+  "use cache";
+  cacheLife("hours"); // for 1-hour cache duration
+  cacheTag(`product-summary-${product.slug}`); // use product slug for targeted invalidation
+  
   // calculate average rating. 
   // Used to determine tone and provide context to the AI.
   const averageRating =
@@ -80,7 +84,6 @@ ${product.reviews
   }
 }
 
-
 export async function streamReviewSummary(product: Product) {
   const averageRating =
     product.reviews.reduce((acc, review) => acc + review.stars, 0) /
@@ -129,6 +132,10 @@ ${product.reviews
 export async function getReviewInsights(
   product: Product
 ): Promise<ReviewInsights> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(`product-insights-${product.slug}`);
+
   const averageRating =
     product.reviews.reduce((acc, review) => acc + review.stars, 0) /
     product.reviews.length;
@@ -148,6 +155,7 @@ ${product.reviews
     .join("\n\n")}`;
  
   try {
+    // inputs the model, schema, and prompt into generateObject()
     const { object } = await generateObject({
       model: "anthropic/claude-sonnet-4.5",
       schema: ReviewInsightsSchema,
